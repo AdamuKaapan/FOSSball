@@ -2,7 +2,8 @@
 import numpy as np
 import cv2
 import collections
-import colorsys
+from .color_util import *
+from .transform_util import *
 
 
 def erode_and_dilate(img, kernel_size=5, erode_iterations=1, dilate_iterations=1):
@@ -21,30 +22,6 @@ def approximate_polygon(hull, epsilon_factor=0.1):
     epsilon = epsilon_factor * cv2.arcLength(hull, True)
     approx = cv2.approxPolyDP(hull, epsilon, True)
     return approx, np.array(approx, dtype="float32")
-
-
-# Note: (-1, -1) = top left, (1, 1) = bottom right
-def get_corner_point(points, x_factor, y_factor):
-    return max(points, key=lambda p: x_factor * p[0][0] + y_factor * p[0][1])
-
-
-# Sorts the src_float_array into the order bottom right, bottom left, top left, top right
-# This is the order specified in get_transform_dest_array later: the order can
-# be changed, it just has to be consistent in both places
-def sort_source_float_array(src_float_array):
-    sorted_float_array = np.zeros_like(src_float_array)
-    sorted_float_array[0] = get_corner_point(src_float_array, 1, 1)
-    sorted_float_array[1] = get_corner_point(src_float_array, -1, 1)
-    sorted_float_array[2] = get_corner_point(src_float_array, -1, -1)
-    sorted_float_array[3] = get_corner_point(src_float_array, 1, -1)
-    return sorted_float_array
-
-
-# Basically a constant, defines the order of the points
-def get_transform_dest_array(output_size):
-    return np.array(
-        [[output_size[0] - 1, output_size[1] - 1], [0, output_size[1] - 1], [0, 0], [output_size[0] - 1, 0]],
-        dtype="float32")
 
 
 # Shamelessly stolen from here: https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example
@@ -70,10 +47,6 @@ def calculate_avg_points(deq):
 def scale_to_match(scale, match, dimension):
     factor = match.shape[dimension] / scale.shape[dimension]
     return cv2.resize(scale, (0, 0), fx=factor, fy=factor)
-
-
-def hsv_to_rgb(hsv):
-    return tuple(round(i * 255) for i in colorsys.hsv_to_rgb(hsv[0], hsv[1], hsv[2]))
 
 
 def get_field_img(img, corners):
@@ -102,23 +75,6 @@ def get_field_img(img, corners):
     max_width = int(img_width)
 
     return get_warped(img, avg_float_array, (max_width, max_height))
-
-
-def transform_coord(coord, matrix):
-    h0 = matrix[0, 0]
-    h1 = matrix[0, 1]
-    h2 = matrix[0, 2]
-    h3 = matrix[1, 0]
-    h4 = matrix[1, 1]
-    h5 = matrix[1, 2]
-    h6 = matrix[2, 0]
-    h7 = matrix[2, 1]
-    h8 = matrix[2, 2]
-
-    tx = (h0 * coord[0] + h1 * coord[1] + h2)
-    ty = (h3 * coord[0] + h4 * coord[1] + h5)
-    tz = (h6 * coord[0] + h7 * coord[1] + h8)
-    return int(tx/tz), int(ty/tz)
 
 
 def main():
